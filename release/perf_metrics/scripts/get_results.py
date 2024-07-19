@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 import requests
 import click
 
+
 PERF_RESULTS_TO_FETCH = {
     r"^microbenchmark.aws \(.+\)$": "microbenchmark.json",
     r"^many_actors.aws \(.+\)$": "benchmarks/many_actors.json",
@@ -23,11 +24,13 @@ PERF_RESULTS_TO_FETCH = {
     ),
 }
 
+
 try:
     buildkite_token = os.environ['BUILDKITE_TOKEN']
 except KeyError:
     print('Environment variable BUILDKITE_TOKEN not found.')
     sys.exit(1)
+
 
 def list_builds(branch: str, commit: str):
     print("Listing builds")
@@ -55,6 +58,7 @@ def list_builds(branch: str, commit: str):
         print(response.text)
         sys.exit(1)
 
+
 def list_artifacts(branch, commit, build_number, job_id) -> List[Dict[str, Any]]:
     url = (
         "https://api.buildkite.com/v2/organizations/ray-project/pipelines/release"
@@ -77,7 +81,7 @@ def list_artifacts(branch, commit, build_number, job_id) -> List[Dict[str, Any]]
             f"Failed to list artifacts: {response['json']}"
         )
     return response["json"]
-    
+
 
 def download_artifact(branch, commit, build_number, job_id, artifact_id) -> Dict[str, Any]:
     """
@@ -112,6 +116,7 @@ def download_artifact(branch, commit, build_number, job_id, artifact_id) -> Dict
         raise Exception("Content-Type not found in response headers")
     file_type = content_type.split(";")[0]
     return {"type": file_type, "content": response["content"]}
+
 
 def find_and_retrieve_artifact_content(branch, commit, build_number, job_id, artifact_filename):
     """Look for artifact file and retrieve its content."""
@@ -153,6 +158,7 @@ def download_results(branch, commit, builds):
     for file_name, result in fetched_results:
         print(f"Result({file_name}): {result}")
 
+
 @click.command()
 @click.option("--branch", type=str, default="master")
 @click.option("--commit", required=True, type=str)
@@ -160,6 +166,7 @@ def main(branch: str, commit: str):
     print(f"Branch: {branch}, Commit: {commit}")
     builds = list_builds(branch, commit)
     download_results(branch, commit, builds)
+
 
 if __name__ == "__main__":
     main()
