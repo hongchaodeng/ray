@@ -54,12 +54,13 @@ def list_builds(branch: str, commit: str):
         builds = response.json()
         return builds
     else:
-        print(f"Failed to fetch builds: {response.status_code}")
-        print(response.text)
-        sys.exit(1)
+        raise Exception(
+            f"Failed to fetch builds: {response.status_code}"
+        )
 
 
 def list_artifacts(branch, commit, build_number, job_id) -> List[Dict[str, Any]]:
+    print("Listing artifacts, build_number: {build_number}, job_id: {job_id}")
     url = (
         "https://api.buildkite.com/v2/organizations/ray-project/pipelines/release"
         f"/builds/{build_number}"
@@ -76,11 +77,11 @@ def list_artifacts(branch, commit, build_number, job_id) -> List[Dict[str, Any]]
         # "created_from": "2024-07-13T23:34:38Z", # ISO 8601 format
     }
     response = requests.get(url, headers=headers, params=params)
-    if response["status_code"] != 200:
+    if response.status_code != 200:
         raise Exception(
             f"Failed to list artifacts: {response['json']}"
         )
-    return response["json"]
+    return response.json()
 
 
 def download_artifact(branch, commit, build_number, job_id, artifact_id) -> Dict[str, Any]:
@@ -89,12 +90,12 @@ def download_artifact(branch, commit, build_number, job_id, artifact_id) -> Dict
     - {"type": "<type_of_content>", "content": <content>}
     Type can either be "json" or "text" depends on the artifact file type.
     """
+    print(f"Downloading artifact, {build_number=}, {job_id=}, {artifact_id=}")
     url = (
         "https://api.buildkite.com/v2/organizations/ray-project/pipelines/release"
         f"/builds/{build_number}"
         f"/jobs/{job_id}"
-        f"/artifacts/{artifact_id}"
-        "/download"
+        f"/artifacts/{artifact_id}/download"
     )
     headers = {
         'Authorization': f'Bearer {buildkite_token}',
@@ -107,15 +108,15 @@ def download_artifact(branch, commit, build_number, job_id, artifact_id) -> Dict
         # "created_from": "2024-07-13T23:34:38Z", # ISO 8601 format
     }
     response = requests.get(url, headers=headers, params=params)
-    if response["status_code"] != 200:
+    if response.status_code != 200:
         raise Exception(
-            f"Failed to list artifacts: {response['json']}"
+            f"Failed to download artifact: {response.json()}"
         )
-    content_type = response["headers"].get("Content-Type", "")
+    content_type = response.headers.get("Content-Type", "")
     if not content_type:
         raise Exception("Content-Type not found in response headers")
     file_type = content_type.split(";")[0]
-    return {"type": file_type, "content": response["content"]}
+    return {"type": file_type, "content": response.content}
 
 
 def find_and_retrieve_artifact_content(branch, commit, build_number, job_id, artifact_filename):
@@ -140,6 +141,7 @@ def download_results(branch, commit, builds):
     perf_results_to_fetch = PERF_RESULTS_TO_FETCH.copy()
     fetched_results = {}
     for build in builds:
+        print(f"build: {build['number']}, state: {build['state']}")
         for job in build["jobs"]:
             if "name" in job:
                 for job_regex, file_name in list(perf_results_to_fetch.items()):
@@ -155,8 +157,10 @@ def download_results(branch, commit, builds):
                             artifact_content["content"].decode()
                         )["results"]
                         perf_results_to_fetch.pop(job_regex)
-    for file_name, result in fetched_results:
-        print(f"Result({file_name}): {result}")
+
+                        for file_name, result in fetched_results.items():
+                            print(f"Result({file_name}): {result}")
+                        return
 
 
 @click.command()
