@@ -13,15 +13,15 @@ PERF_RESULTS_TO_FETCH = {
     r"^many_nodes.aws \(.+\)$": "benchmarks/many_nodes.json",
     r"^many_pgs.aws \(.+\)$": "benchmarks/many_pgs.json",
     r"^many_tasks.aws \(.+\)$": "benchmarks/many_tasks.json",
-    r"^object_store.aws \(.+\)$": "scalability/object_store.json",
-    r"^single_node.aws \(.+\)$": "scalability/single_node.json",
-    r"^stress_test_dead_actors.aws \(.+\)$": (
-        "stress_tests/stress_test_dead_actors.json"
-    ),
-    r"^stress_test_many_tasks.aws \(.+\)$": "stress_tests/stress_test_many_tasks.json",
-    r"^stress_test_placement_group.aws \(.+\)$": (
-        "stress_tests/stress_test_placement_group.json"
-    ),
+    # r"^object_store.aws \(.+\)$": "scalability/object_store.json",
+    # r"^single_node.aws \(.+\)$": "scalability/single_node.json",
+    # r"^stress_test_dead_actors.aws \(.+\)$": (
+    #     "stress_tests/stress_test_dead_actors.json"
+    # ),
+    # r"^stress_test_many_tasks.aws \(.+\)$": "stress_tests/stress_test_many_tasks.json",
+    # r"^stress_test_placement_group.aws \(.+\)$": (
+    #     "stress_tests/stress_test_placement_group.json"
+    # ),
 }
 
 
@@ -60,7 +60,7 @@ def list_builds(branch: str, commit: str):
 
 
 def list_artifacts(branch, commit, build_number, job_id) -> List[Dict[str, Any]]:
-    print("Listing artifacts, build_number: {build_number}, job_id: {job_id}")
+    print(f"Listing artifacts, {build_number=}, {job_id=}")
     url = (
         "https://api.buildkite.com/v2/organizations/ray-project/pipelines/release"
         f"/builds/{build_number}"
@@ -84,7 +84,7 @@ def list_artifacts(branch, commit, build_number, job_id) -> List[Dict[str, Any]]
     return response.json()
 
 
-def download_artifact(branch, commit, build_number, job_id, artifact_id) -> Dict[str, Any]:
+def download_artifact(branch, commit, build_number, job_id, artifact_id) -> bytes:
     """
     Download artifact from a given artifact ID. The result is in the format:
     - {"type": "<type_of_content>", "content": <content>}
@@ -112,14 +112,10 @@ def download_artifact(branch, commit, build_number, job_id, artifact_id) -> Dict
         raise Exception(
             f"Failed to download artifact: {response.json()}"
         )
-    content_type = response.headers.get("Content-Type", "")
-    if not content_type:
-        raise Exception("Content-Type not found in response headers")
-    file_type = content_type.split(";")[0]
-    return {"type": file_type, "content": response.content}
+    return response.content
 
 
-def find_and_retrieve_artifact_content(branch, commit, build_number, job_id, artifact_filename):
+def find_and_retrieve_artifact_content(branch, commit, build_number, job_id, artifact_filename) -> bytes:
     """Look for artifact file and retrieve its content."""
     artifacts = list_artifacts(branch, commit, build_number, job_id)
     for artifact in artifacts:
@@ -154,13 +150,15 @@ def download_results(branch, commit, builds):
                             "result.json",
                         )
                         fetched_results[file_name] = json.loads(
-                            artifact_content["content"].decode()
-                        )["results"]
+                            artifact_content.decode()
+                        )["results"]["perf_metrics"]
                         perf_results_to_fetch.pop(job_regex)
+                        print(f"Fetched {file_name=}")
 
-                        for file_name, result in fetched_results.items():
-                            print(f"Result({file_name}): {result}")
-                        return
+
+                        
+    with open("tmp~/perf/result.json", "w") as f:
+        json.dump(fetched_results, f, indent=2)
 
 
 @click.command()
