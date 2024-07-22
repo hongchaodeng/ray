@@ -27,7 +27,7 @@ except KeyError:
     sys.exit(1)
 
 
-def list_builds(branch: str, commit: Optional[str] = None) -> List[Dict[str, Any]]:
+def list_builds(branch: str, commit: str) -> List[Dict[str, Any]]:
     print("Listing builds")
     url = "https://api.buildkite.com/v2/organizations/ray-project/pipelines/release/builds"
     headers = {
@@ -35,7 +35,7 @@ def list_builds(branch: str, commit: Optional[str] = None) -> List[Dict[str, Any
         "Content-Type": "application/json",
     }
     params = {
-        "branch": branch,
+        "commit": commit,
     }
     if commit:
         params["commit"] = commit
