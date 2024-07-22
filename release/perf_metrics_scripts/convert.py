@@ -14,7 +14,7 @@ for job_name, metrics in data.items():
         row = {}
         for key, value in metric.items():
             if key == "perf_metric_name":
-                row[key] = f"{job_name}-{value}"
+                row[key] = f"{job_name}/{value}"
             else:
                 row[key] = value
         rows.append(row)
