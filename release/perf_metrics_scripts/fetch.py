@@ -8,15 +8,15 @@ import click
 
 
 PERF_RESULTS_TO_FETCH = {
-    r"^microbenchmark.aws \(.+\)$",
-    r"^many_actors_smoke_test \(.+\)$",
-    r"^many_pgs_smoke_test \(.+\)$",
-    r"^many_tasks.aws \(.+\)$",
-    r"^object_store.aws \(.+\)$",
-    r"^single_node.aws \(.+\)$",
-    r"^stress_test_dead_actors.aws \(.+\)$",
-    r"^stress_test_many_tasks.aws \(.+\)$",
-    r"^stress_test_placement_group.aws \(.+\)$",
+    r"^many_(.+)$",
+    r"^object_store.aws (.+)$",
+    r"^single_node.aws (.+)$",
+    r"^agent_stress_test.aws (.+)$",
+    r"^stress_test_(.+)$",
+    r"^microbenchmark.aws (.+)$",
+    r"^serve_microbenchmarks.aws (.+)$",
+    r"serve_autoscaling_load_test.aws (.+)$",
+    r"autoscaling_shuffle_1tb_1000_partitions.aws (.+)$",
 }
 
 
@@ -106,10 +106,9 @@ def find_and_retrieve_artifact_content(
 
 def fetch_results(builds):
     print("Downloading results")
-    perf_results_to_fetch = PERF_RESULTS_TO_FETCH.copy()
     fetched_results = {}
 
-    def on_job_matched(job_regex, build, job):
+    def download_perf_metrics(build, job):
         jobname = job["name"].split()[0]
         print(f"matched job: {jobname=}")
         artifact_content = find_and_retrieve_artifact_content(
@@ -118,9 +117,11 @@ def fetch_results(builds):
             "result.json",
         )
         loaded_content = json.loads(artifact_content.decode())
-        fetched_results[jobname] = loaded_content["results"]["perf_metrics"]
-        perf_results_to_fetch.remove(job_regex)
-        print(f"Fetched {jobname=}")
+        if "results" in loaded_content and "perf_metrics" in loaded_content["results"]:
+            fetched_results[jobname] = loaded_content["results"]["perf_metrics"]
+            print(f"Fetched {jobname=}")
+        else:
+            print(f"Failed to fetch {jobname=}")
 
     for build in builds:
         for job in build["jobs"]:
@@ -128,9 +129,10 @@ def fetch_results(builds):
                 continue
             if job["state"] != "passed":
                 continue
-            for job_regex in perf_results_to_fetch:
-                if re.match(job_regex, job["name"]):
-                    on_job_matched(job_regex, build, job)
+            # print("job: ", job["name"])
+            for regex in PERF_RESULTS_TO_FETCH:
+                if re.match(regex, job["name"]):
+                    download_perf_metrics(build, job)
                     break
 
     return fetched_results

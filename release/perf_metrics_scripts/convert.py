@@ -1,26 +1,48 @@
-import pandas as pd
+import os
+import sys
 import json
+import click
 
-# Load the JSON data
-with open('tmp~/perf/result.json') as f:
-    data = json.load(f)
+import pandas as pd
 
-# Prepare a list to hold the rows for the DataFrame
-rows = []
+@click.command()
+@click.option("--datadir", required=True, type=str)
+def main(datadir: str):
+    # Load the JSON data
+    with open(os.path.join(datadir, 'result.json')) as f:
+        data = json.load(f)
 
-# Iterate through the top-level keys and their corresponding lists of metrics
-for job_name, metrics in data.items():
-    for metric in metrics:
-        row = {}
-        for key, value in metric.items():
-            if key == "perf_metric_name":
-                row[key] = f"{job_name}/{value}"
-            else:
-                row[key] = value
-        rows.append(row)
+    # Prepare a list to hold the rows for the DataFrame
+    rows = []
 
-# Convert the list of rows to a DataFrame
-df = pd.DataFrame(rows)
+    # Iterate through the top-level keys and their corresponding lists of metrics
+    for job_name, metrics in data.items():
+        for metric in metrics:
+            row = {}
+            for key, value in metric.items():
+                if key == "perf_metric_name":
+                    row[key] = f"{job_name}/{value}"
+                else:
+                    row[key] = value
+            rows.append(row)
 
-# Save DataFrame to CSV
-df.to_csv('tmp~/perf/output.csv', index=False)
+    # Divide them into two separate lists: throughput and latency
+    tp_rows = []
+    lt_rows = []
+    
+    for row in rows:
+        r = {k: v for k, v in row.items() if k != 'perf_metric_type'}
+        if row['perf_metric_type'].startswith('THROUGHPUT'):
+            tp_rows.append(r)
+        elif row['perf_metric_type'].startswith('LATENCY'):
+            lt_rows.append(r)
+
+    def write_csv(rows, filename):
+        df = pd.DataFrame(rows)
+        df.to_csv(os.path.join(datadir, f'{filename}.csv'), index=False)
+
+    write_csv(tp_rows, 'throughput')
+    write_csv(lt_rows, 'latency')
+
+if __name__ == "__main__":
+    main()
