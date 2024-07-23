@@ -19,6 +19,24 @@ PERF_RESULTS_TO_FETCH = {
     r"autoscaling_shuffle_1tb_1000_partitions.aws (.+)$",
 }
 
+DATA_RESULTS_TO_FETCH = {
+    r"^stable_diffusion_benchmark.aws (.+)$",
+    r"^read_images_benchmark_single_node.aws (.+)$",
+    r"^read_images_comparison_microbenchmark_single_node.aws (.+)$",
+    r"^read_tfrecords_benchmark_single_node.aws (.+)$",
+    r"^read_parquet_benchmark_single_node.aws (.+)$",
+    r"^parquet_metadata_resolution.aws (.+)$",
+    r"^streaming_data_ingest_benchmark_(.+)$",
+    r"^ray-data-resnet50-ingest-file-size-benchmark.aws (.+)$",
+    r"^iter_batches_benchmark_single_node.aws (.+)$",
+    r"^iter_tensor_batches_benchmark_single_node.aws (.+)$",
+    r"^map_batches_benchmark_single_node.aws (.+)$",
+    r"^iter_tensor_batches_benchmark_multi_node.aws (.+)$",
+    r"^dataset_shuffle_random_shuffle_1tb.aws (.+)$",
+    r"^aggregate_benchmark.aws (.+)$",
+    
+}
+
 
 try:
     buildkite_token = os.environ["BUILDKITE_TOKEN"]
@@ -106,9 +124,22 @@ def find_and_retrieve_artifact_content(
 
 def fetch_results(builds):
     print("Downloading results")
-    fetched_results = {}
+    perf_results = {}
+    data_results = {}
 
-    def download_perf_metrics(build, job):
+    def handle_perf_metrics(jobname, content):
+        if "results" in content and "perf_metrics" in content["results"]:
+            perf_results[jobname] = content["results"]["perf_metrics"]
+            return True
+        return False
+    
+    def handle_data_metrics(jobname, content):
+        if "results" in content:
+            data_results[jobname] = content["results"]
+            return True
+        return False
+
+    def download_perf_metrics(build, job, on_fetched):
         jobname = job["name"].split()[0]
         print(f"matched job: {jobname=}")
         artifact_content = find_and_retrieve_artifact_content(
@@ -117,8 +148,7 @@ def fetch_results(builds):
             "result.json",
         )
         loaded_content = json.loads(artifact_content.decode())
-        if "results" in loaded_content and "perf_metrics" in loaded_content["results"]:
-            fetched_results[jobname] = loaded_content["results"]["perf_metrics"]
+        if on_fetched(jobname, loaded_content):
             print(f"Fetched {jobname=}")
         else:
             print(f"Failed to fetch {jobname=}")
@@ -130,12 +160,19 @@ def fetch_results(builds):
             if job["state"] != "passed":
                 continue
             # print("job: ", job["name"])
+            found = False
             for regex in PERF_RESULTS_TO_FETCH:
                 if re.match(regex, job["name"]):
-                    download_perf_metrics(build, job)
+                    download_perf_metrics(build, job, handle_perf_metrics)
+                    found = True
                     break
+            if found:
+                continue
+            for regex in DATA_RESULTS_TO_FETCH:
+                if re.match(regex, job["name"]):
+                    download_perf_metrics(build, job, handle_data_metrics)
 
-    return fetched_results
+    return perf_results, data_results
 
 
 @click.command()
@@ -145,10 +182,13 @@ def fetch_results(builds):
 def main(branch: str, commit: str, outputdir: str):
     print(f"Branch: {branch}, Commit: {commit}")
     builds = list_builds(branch, commit)
-    results = fetch_results(builds)
+    perf_results, data_results = fetch_results(builds)
 
     with open(os.path.join(outputdir, "result.json"), "w") as f:
-        json.dump(results, f, indent=2)
+        json.dump(perf_results, f, indent=2)
+
+    with open(os.path.join(outputdir, "data.json"), "w") as f:
+        json.dump(data_results, f, indent=2)
     print("success!")
 
 

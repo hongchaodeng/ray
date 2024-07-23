@@ -37,6 +37,32 @@ def main(datadir: str):
         elif row['perf_metric_type'].startswith('LATENCY'):
             lt_rows.append(r)
 
+    with open(os.path.join(datadir, 'data.json')) as f:
+        data = json.load(f)
+
+    for job_name, results in data.items():
+        if "name" not in results:
+            continue
+        name = results["name"]
+        
+        for key in results:
+            if key == "name":
+                continue
+            value = results[key]
+            if "time" in value:
+                row = {
+                    "perf_metric_name": f"{job_name}/{name}-{key}",
+                    "perf_metric_value": value["time"],
+                }
+                lt_rows.append(row)
+
+            if "tput" in value:
+                row = {
+                    "perf_metric_name": f"{job_name}/{name}-{key}",
+                    "perf_metric_value": value["tput"],
+                }
+                tp_rows.append(row)
+
     def write_csv(rows, filename):
         df = pd.DataFrame(rows)
         df.to_csv(os.path.join(datadir, f'{filename}.csv'), index=False)
