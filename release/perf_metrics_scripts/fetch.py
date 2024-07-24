@@ -27,7 +27,6 @@ DATA_RESULTS_TO_FETCH = {
     r"^read_parquet_benchmark_single_node.aws (.+)$",
     r"^parquet_metadata_resolution.aws (.+)$",
     r"^streaming_data_ingest_benchmark_(.+)$",
-    r"^ray-data-resnet50-ingest-file-size-benchmark.aws (.+)$",
     r"^iter_batches_benchmark_single_node.aws (.+)$",
     r"^iter_tensor_batches_benchmark_single_node.aws (.+)$",
     r"^map_batches_benchmark_single_node.aws (.+)$",

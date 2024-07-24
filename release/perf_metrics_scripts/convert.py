@@ -41,15 +41,6 @@ def main(datadir: str):
         data = json.load(f)
 
     for job_name, results in data.items():
-        if "perf_metrics" in results:
-            for name, value in results["perf_metrics"].items():
-                row = {
-                    "perf_metric_name": f"{job_name}/{name}",
-                    "perf_metric_value": value["THROUGHPUT"],
-                }
-                tp_rows.append(row)
-            continue
-        
         if "name" not in results:
             continue
         name = results["name"]
