@@ -8,21 +8,22 @@ import click
 
 
 PERF_RESULTS_TO_FETCH = {
-    # Core
     r"^many_(.+)$",
     r"^object_store.aws (.+)$",
     r"^single_node.aws (.+)$",
     r"^stress_test_(.+)$",
     r"^microbenchmark.aws (.+)$",
     r"autoscaling_shuffle_1tb_1000_partitions.aws (.+)$",
-    # Serve
+}
+
+SERVE_RESULTS_TO_FETCH = {
     r"^serve_microbenchmarks.aws (.+)$",
     r"serve_autoscaling_load_test.aws (.+)$",
 }
 
+# Data + Train
 DATA_RESULTS_TO_FETCH = {
     r"^aggregate_benchmark.aws (.+)$",
-    r"^stable_diffusion_benchmark.aws (.+)$",
     r"^read_images_benchmark_single_node.aws (.+)$",
     r"^read_images_comparison_microbenchmark_single_node.aws (.+)$",
     r"^read_tfrecords_benchmark_single_node.aws (.+)$",
@@ -33,6 +34,16 @@ DATA_RESULTS_TO_FETCH = {
     r"^iter_tensor_batches_benchmark_single_node.aws (.+)$",
     r"^map_batches_benchmark_single_node.aws (.+)$",
     r"^iter_tensor_batches_benchmark_multi_node.aws (.+)$",
+    r"^read_images_train_4_gpu.aws (.+)$",
+    r"^read_images_train_16_gpu.aws (.+)$",
+    r"^read_images_train_16_gpu_preserve_order.aws (.+)$",
+    r"^read_parquet_train_4_gpu.aws (.+)$",
+    r"^read_parquet_train_16_gpu.aws (.+)$",
+    r"^dataset_shuffle_random_shuffle_1tb.aws (.+)$",
+    r"^torch_batch_inference_1_gpu_10gb_parquet.aws (.+)$",
+    r"^torch_batch_inference_16_gpu_300gb_raw.aws (.+)$",
+    r"^torch_batch_inference_16_gpu_300gb_parquet.aws (.+)$",
+    r"^stable_diffusion_benchmark.aws (.+)$",
 }
 
 
@@ -120,9 +131,10 @@ def find_and_retrieve_artifact_content(
     raise Exception(f"Artifact {artifact_filename} not found")
 
 
-def fetch_results(builds):
+def fetch_results(build):
     print("Downloading results")
     perf_results = {}
+    serve_results = {}
     data_results = {}
 
     def handle_perf_metrics(jobname, content):
@@ -136,9 +148,15 @@ def fetch_results(builds):
             data_results[jobname] = content["results"]
             return True
         return False
+    
+    def handle_serve_metrics(jobname, content):
+        if "results" in content and "perf_metrics" in content["results"]:
+            serve_results[jobname] = content["results"]["perf_metrics"]
+            return True
+        return False
 
     def download_perf_metrics(build, job, on_fetched):
-        jobname = job["name"].split()[0]
+        jobname = job["name"].replace(" ", "_")
         print(f"matched job: {jobname=}")
         artifact_content = find_and_retrieve_artifact_content(
             build["number"],
@@ -151,26 +169,37 @@ def fetch_results(builds):
         else:
             print(f"Failed to fetch {jobname=}")
 
-    for build in builds:
-        for job in build["jobs"]:
-            if not "name" in job:
-                continue
-            if job["state"] != "passed":
-                continue
-            # print("job: ", job["name"])
-            found = False
-            for regex in PERF_RESULTS_TO_FETCH:
-                if re.match(regex, job["name"]):
-                    download_perf_metrics(build, job, handle_perf_metrics)
-                    found = True
-                    break
-            if found:
-                continue
-            for regex in DATA_RESULTS_TO_FETCH:
-                if re.match(regex, job["name"]):
-                    download_perf_metrics(build, job, handle_data_metrics)
+    for job in build["jobs"]:
+        if not "name" in job:
+            continue
+        if job["state"] != "passed":
+            continue
+        # print("job: ", job["name"])
+        found = False
+        # core
+        for regex in PERF_RESULTS_TO_FETCH:
+            if re.match(regex, job["name"]):
+                download_perf_metrics(build, job, handle_perf_metrics)
+                found = True
+                break
+        if found:
+            continue
+        # data
+        for regex in DATA_RESULTS_TO_FETCH:
+            if re.match(regex, job["name"]):
+                download_perf_metrics(build, job, handle_data_metrics)
+                found = True
+                break
+        if found:
+            continue
+        # serve
+        for regex in SERVE_RESULTS_TO_FETCH:
+            if re.match(regex, job["name"]):
+                download_perf_metrics(build, job, handle_serve_metrics)
+                found = True
+                break
 
-    return perf_results, data_results
+    return perf_results, serve_results, data_results
 
 
 @click.command()
@@ -180,11 +209,12 @@ def fetch_results(builds):
 def main(branch: str, commit: str, outputdir: str):
     print(f"Branch: {branch}, Commit: {commit}")
     builds = list_builds(branch, commit)
-    perf_results, data_results = fetch_results(builds)
+    perf_results, serve_results, data_results = fetch_results(builds[0])
 
     with open(os.path.join(outputdir, "result.json"), "w") as f:
         json.dump(perf_results, f, indent=2)
-
+    with open(os.path.join(outputdir, "serve.json"), "w") as f:
+        json.dump(serve_results, f, indent=2)
     with open(os.path.join(outputdir, "data.json"), "w") as f:
         json.dump(data_results, f, indent=2)
     print("success!")
