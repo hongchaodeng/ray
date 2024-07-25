@@ -8,18 +8,20 @@ import click
 
 
 PERF_RESULTS_TO_FETCH = {
+    # Core
     r"^many_(.+)$",
     r"^object_store.aws (.+)$",
     r"^single_node.aws (.+)$",
-    r"^agent_stress_test.aws (.+)$",
     r"^stress_test_(.+)$",
     r"^microbenchmark.aws (.+)$",
+    r"autoscaling_shuffle_1tb_1000_partitions.aws (.+)$",
+    # Serve
     r"^serve_microbenchmarks.aws (.+)$",
     r"serve_autoscaling_load_test.aws (.+)$",
-    r"autoscaling_shuffle_1tb_1000_partitions.aws (.+)$",
 }
 
 DATA_RESULTS_TO_FETCH = {
+    r"^aggregate_benchmark.aws (.+)$",
     r"^stable_diffusion_benchmark.aws (.+)$",
     r"^read_images_benchmark_single_node.aws (.+)$",
     r"^read_images_comparison_microbenchmark_single_node.aws (.+)$",
@@ -31,9 +33,6 @@ DATA_RESULTS_TO_FETCH = {
     r"^iter_tensor_batches_benchmark_single_node.aws (.+)$",
     r"^map_batches_benchmark_single_node.aws (.+)$",
     r"^iter_tensor_batches_benchmark_multi_node.aws (.+)$",
-    r"^dataset_shuffle_random_shuffle_1tb.aws (.+)$",
-    r"^aggregate_benchmark.aws (.+)$",
-    
 }
 
 
